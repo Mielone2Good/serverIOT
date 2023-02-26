@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+Witaj {{imie}}!
+<br>
+
+<div style="display: grid;grid-template-columns: 1fr 1fr 1fr">
+    {% for pomiar, czas in pomiary %}
+
+    <div style="margin:10px;border: 1px solid black;border-radius: 10px; padding: 3px; width:400px">{{pomiar}} ({{czas}})
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    setTimeout(function(){
+   window.location.reload(1);
+   window.location.reload(5);
+
+}, 2000);
+
+</script>
+
+</body>
+</html>
