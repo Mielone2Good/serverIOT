@@ -113,3 +113,7 @@ async def register(user: User):
 
 # instalacja:
 # pip insall uvicorn
+
+# zapisuje wersje bibliotek do pliku
+# pip freeze > requirements.txt
+
