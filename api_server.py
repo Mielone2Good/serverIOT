@@ -1,11 +1,14 @@
 import os
 
+import requests
 from fastapi import FastAPI, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import jwt
 import json
 from datetime import datetime, timedelta
+import threading
+import time
 
 SECRET_KEY = "fdjhfhdjhfdjhfds45fds1f2ds1fdsfdsbfhdsb"
 
@@ -15,6 +18,7 @@ app = FastAPI()
 
 messages = []
 users = []
+notifications = []
 
 
 if os.path.exists(FILENAME):
@@ -22,13 +26,15 @@ if os.path.exists(FILENAME):
         data = json.load(f)
         users = data["users"]
         messages = data["messages"]
+        notifications = data["notifications"]
 
 
 def save_db():
     with open(FILENAME, "w") as f:
         data = {
             "users": users,
-            "messages": messages
+            "messages": messages,
+            "notifications": notifications
         }
         json.dump(data, f, indent=True)
 
@@ -48,7 +54,6 @@ async def message(token: str = Header(None)):
 
 
 class Message(BaseModel):
-    author: str
     message: str
 
 
@@ -60,6 +65,16 @@ async def send_message(msg: Message, token: str = Header(None)):
         token_data = jwt.decode(token, key=SECRET_KEY, algorithms="HS256")
         print(token_data)
         messages.append(token_data["username"] + ": " + msg.message)
+        if msg.message.startswith("set-notification"):
+            command, date, *product = msg.message.split(" ")
+            notifications.append({
+                "date": date,
+                "product": product,
+                "username": token_data["username"]
+            })
+            print(notifications)
+            save_db()
+
         save_db()
         return {"message": "OK"}
     except jwt.exceptions.InvalidSignatureError:
@@ -109,7 +124,7 @@ async def register(user: User):
 
 
 # uruchomienie
-# uvicorn api_server:app --reload
+# uvicorn api_server:app --reload --host="0.0.0.0"
 
 # instalacja:
 # pip insall uvicorn
@@ -117,3 +132,35 @@ async def register(user: User):
 # zapisuje wersje bibliotek do pliku
 # pip freeze > requirements.txt
 
+def send_api_call(message):
+    url = "https://maker.ifttt.com/trigger/data_wybila/json/with/key/c_gqYRvJ5NVJxyD-PR4fpP"
+    body = {"message": message}
+    response = requests.post(url, json=body)
+    print(response)
+
+
+def check_notifications():
+    print(datetime.now(), "Sprawdzam powiadomienia ---------------------------------")
+
+    to_remove = []
+    for notif in notifications:
+        date = datetime.strptime(notif["date"], "%d-%m-%Y")
+        if date.date() == datetime.now().date():
+            send_api_call(notif)
+            to_remove.append(notif)
+
+    if len(to_remove) > 0:
+        for r in to_remove:
+            notifications.remove(r)
+        save_db()
+
+
+def do_in_loop():
+    print("Loop started!")
+    while True:
+        check_notifications()
+        time.sleep(30)
+
+
+thread = threading.Thread(target=do_in_loop)
+thread.start()
